@@ -11,4 +11,4 @@ Per-host wiring. Each subdirectory takes the portable content (`mcp/`, `skills/`
 | `gemini/`        | Gemini CLI  | `settings.json mcpServers`, `GEMINI.md`, `commands/*.toml` |
 
 Each adapter has its own `README.md` with install steps and a sync script (in
-`scripts/`) that regenerates its artifacts from the portable content.
+`support/scripts/`) that regenerates its artifacts from the portable content.

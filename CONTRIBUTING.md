@@ -16,9 +16,11 @@
 - **Every unit has its own `README.md`** stating purpose, inputs/outputs, how to
   run, and dependencies.
 - **Each `mcp/<server>` pins its own dependencies.** No repo-wide lockfile.
-- **Dependency direction:** `agents/` → `skills/` → `mcp/` / `shared/`. Never the
-  reverse. Adapters may depend on anything; nothing depends on adapters.
+- **Dependency direction:** `agents/` → `skills/` → `mcp/` / `support/shared/`.
+  Never the reverse. Adapters may depend on anything; nothing depends on adapters.
 - **Each top-level directory's `README.md` is an index** (a table of its units).
+- **`support/`** holds scaffolding, not deliverables: `shared/` (code reused
+  across units), `evals/`, `datasets/`, `scripts/`.
 
 ## Adding a unit
 

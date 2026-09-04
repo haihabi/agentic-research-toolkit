@@ -27,10 +27,7 @@ in `adapters/`.
 | `agents/`         | Agent specs in a neutral schema, one Markdown file per agent. |
 | `prompts/`        | Reusable prompt fragments and templates. |
 | `adapters/`       | Per-host wiring: `claude-code/`, `codex/`, `gemini/`. |
-| `shared/`         | Code reused across servers/skills (clients, schemas). |
-| `evals/`          | Eval suites for the units above. |
-| `datasets/`       | Fixtures and research corpora. |
-| `scripts/`        | Setup, run, and sync/generate helpers. |
+| `support/`        | Scaffolding, not deliverables: `shared/`, `evals/`, `datasets/`, `scripts/`. |
 | `docs/`           | Design notes, architecture, decisions. |
 
 ## Host support matrix
