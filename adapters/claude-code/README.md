@@ -12,4 +12,8 @@ Wires the portable content into **Claude Code**.
 
 - [overleaf](overleaf.md)
 
+## Skills
+
+- [paper-review](paper-review.md)
+
 <!-- Add: install.sh / sync script, generated .mcp.json snippet, notes. -->

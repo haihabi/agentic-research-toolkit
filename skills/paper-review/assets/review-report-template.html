@@ -1,0 +1,410 @@
+<title>Paper Review Report</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Newsreader:opsz,wght@6..72,400;6..72,500;6..72,600&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<!--
+  review-report-template.html — authored per run by the paper-review skill.
+  Replace the JSON in <script id="report-data"> with the run's report object
+  (schema in prompts/paper-review-output-spec.md, "Review report Artifact").
+  Publish with capabilities {db:{}} in loop mode (enables the curation control);
+  static mode needs no capabilities.
+-->
+<style>
+  :root {
+    --paper:#f4f5f7; --surface:#fff; --sunk:#eef0f3;
+    --ink:#1c2126; --ink-soft:#4b545e; --ink-faint:#7c8792;
+    --rule:#d8dde3; --rule-soft:#e7eaee;
+    --accent:#2f6f8f; --accent-ink:#1d4a61;
+    --loop:#b5673a; --loop-ink:#8a4a26;
+    --blocking:#b23b3b; --major:#c67b2c; --minor:#3a6ea5; --nit:#8a929b;
+    --agree:#3f7a52; --agree-bg:#e9f2ec;
+    --open:#8a7b52; --open-bg:#f3efe3;
+    --disagree:#a8443f; --disagree-bg:#f6e9e8;
+    --shadow:0 1px 2px rgba(20,30,40,.06), 0 10px 28px rgba(20,30,40,.05);
+  }
+  @media (prefers-color-scheme:dark){ :root:not([data-theme="light"]){
+    --paper:#14171b; --surface:#1b1f24; --sunk:#20252b;
+    --ink:#e7e9ec; --ink-soft:#aab2bb; --ink-faint:#7d868f;
+    --rule:#2c333b; --rule-soft:#242a31;
+    --accent:#6bb2cf; --accent-ink:#a7d3e4;
+    --loop:#d9895f; --loop-ink:#ecb393;
+    --blocking:#e07a76; --major:#e0a057; --minor:#78b1d6; --nit:#88919b;
+    --agree:#74b389; --agree-bg:#1e2b23;
+    --open:#c3b17f; --open-bg:#2a2620;
+    --disagree:#e08882; --disagree-bg:#2c211f;
+    --shadow:0 1px 2px rgba(0,0,0,.3), 0 12px 32px rgba(0,0,0,.4);
+  }}
+  :root[data-theme="dark"]{
+    --paper:#14171b; --surface:#1b1f24; --sunk:#20252b;
+    --ink:#e7e9ec; --ink-soft:#aab2bb; --ink-faint:#7d868f;
+    --rule:#2c333b; --rule-soft:#242a31;
+    --accent:#6bb2cf; --accent-ink:#a7d3e4;
+    --loop:#d9895f; --loop-ink:#ecb393;
+    --blocking:#e07a76; --major:#e0a057; --minor:#78b1d6; --nit:#88919b;
+    --agree:#74b389; --agree-bg:#1e2b23;
+    --open:#c3b17f; --open-bg:#2a2620;
+    --disagree:#e08882; --disagree-bg:#2c211f;
+    --shadow:0 1px 2px rgba(0,0,0,.3), 0 12px 32px rgba(0,0,0,.4);
+  }
+  *{box-sizing:border-box;}
+  body{margin:0;background:var(--paper);color:var(--ink);
+    font-family:"IBM Plex Sans",system-ui,sans-serif;line-height:1.55;
+    -webkit-font-smoothing:antialiased;}
+  .wrap{max-width:1000px;margin:0 auto;padding:clamp(1.6rem,4vw,3.2rem) clamp(1rem,3.5vw,2.4rem) 4rem;}
+  code,.mono{font-family:"IBM Plex Mono",monospace;}
+
+  .ribbon{display:inline-block;font-family:"IBM Plex Mono",monospace;font-size:.68rem;
+    letter-spacing:.12em;text-transform:uppercase;color:var(--loop-ink);
+    border:1px solid var(--loop);border-radius:999px;padding:.2rem .7rem;margin-bottom:1rem;}
+  header{border-bottom:1px solid var(--rule);padding-bottom:1.5rem;margin-bottom:1.6rem;}
+  .kicker{font-family:"IBM Plex Mono",monospace;font-size:.72rem;letter-spacing:.13em;
+    text-transform:uppercase;color:var(--accent-ink);margin:0 0 .6rem;}
+  h1{font-family:"Newsreader",Georgia,serif;font-weight:500;font-size:clamp(1.7rem,3.6vw,2.5rem);
+    line-height:1.12;letter-spacing:-.01em;text-wrap:balance;margin:0 0 .5rem;}
+  .venue{color:var(--ink-soft);font-size:1rem;margin:0;}
+  .venue .mode{color:var(--loop-ink);font-weight:600;}
+
+  /* summary bar */
+  .summary{display:grid;gap:1rem;grid-template-columns:1fr;margin:1.6rem 0 2rem;}
+  @media(min-width:720px){.summary{grid-template-columns:1.4fr 1fr;}}
+  .decision{background:var(--surface);border:1px solid var(--rule-soft);border-top:3px solid var(--loop);
+    border-radius:12px;padding:1.15rem 1.3rem;box-shadow:var(--shadow);}
+  .decision .lbl{font-family:"IBM Plex Mono",monospace;font-size:.7rem;letter-spacing:.1em;
+    text-transform:uppercase;color:var(--ink-faint);margin:0 0 .3rem;}
+  .decision .val{font-family:"Newsreader",Georgia,serif;font-size:1.7rem;font-weight:600;margin:0 0 .5rem;
+    text-transform:capitalize;}
+  .decision .val.reject{color:var(--disagree);}
+  .decision .val.accept{color:var(--agree);}
+  .decision .rationale{font-size:.9rem;color:var(--ink-soft);margin:0;}
+  .tiles{display:grid;grid-template-columns:repeat(2,1fr);gap:.7rem;}
+  .tile{background:var(--surface);border:1px solid var(--rule-soft);border-radius:10px;padding:.8rem .9rem;
+    box-shadow:var(--shadow);}
+  .tile .n{font-family:"Newsreader",Georgia,serif;font-size:1.5rem;font-weight:600;line-height:1;
+    font-variant-numeric:tabular-nums;}
+  .tile .k{font-size:.74rem;color:var(--ink-faint);text-transform:uppercase;letter-spacing:.06em;margin-top:.25rem;}
+  .tile.g1 .n{color:var(--agree);}
+  .tile.g2 .n{color:var(--open);}
+
+  h2{font-family:"Newsreader",Georgia,serif;font-weight:500;font-size:1.4rem;margin:2.4rem 0 .9rem;}
+
+  /* reviewer cards */
+  .reviewers{display:grid;gap:.9rem;grid-template-columns:1fr;}
+  @media(min-width:720px){.reviewers{grid-template-columns:repeat(3,1fr);}}
+  .rv{background:var(--surface);border:1px solid var(--rule-soft);border-radius:10px;padding:.95rem 1rem;
+    box-shadow:var(--shadow);}
+  .rv .top{display:flex;justify-content:space-between;align-items:baseline;gap:.5rem;}
+  .rv .id{font-family:"IBM Plex Mono",monospace;font-weight:600;}
+  .rv .level{font-size:.7rem;text-transform:uppercase;letter-spacing:.07em;color:var(--ink-faint);}
+  .rv .scores{display:flex;flex-wrap:wrap;gap:.35rem;margin:.55rem 0;}
+  .rv .sc{font-family:"IBM Plex Mono",monospace;font-size:.74rem;background:var(--sunk);border-radius:5px;
+    padding:.15rem .45rem;color:var(--ink-soft);}
+  .rv .sc b{color:var(--ink);}
+  .rv .sc .up{color:var(--agree);}
+  .rv .sc .down{color:var(--disagree);}
+  .rv .sum{font-size:.86rem;color:var(--ink-soft);margin:.4rem 0 0;}
+
+  /* filters */
+  .filters{display:flex;flex-wrap:wrap;gap:.4rem;margin:.4rem 0 1rem;}
+  .filters button{font:inherit;font-size:.78rem;background:var(--surface);border:1px solid var(--rule);
+    color:var(--ink-soft);border-radius:999px;padding:.28rem .7rem;cursor:pointer;}
+  .filters button[aria-pressed="true"]{background:var(--accent);border-color:var(--accent);color:#fff;}
+  .curbar{font-size:.82rem;color:var(--ink-faint);margin:0 0 1rem;}
+  .curbar b{color:var(--ink);font-variant-numeric:tabular-nums;}
+  .roflag{font-size:.8rem;color:var(--open);background:var(--open-bg);border:1px solid var(--open);
+    border-radius:8px;padding:.55rem .8rem;margin:0 0 1rem;}
+
+  /* comment rows */
+  .cmt{background:var(--surface);border:1px solid var(--rule-soft);border-left:3px solid var(--nit);
+    border-radius:8px;margin-bottom:.7rem;box-shadow:var(--shadow);overflow:hidden;}
+  .cmt.sev-blocking{border-left-color:var(--blocking);}
+  .cmt.sev-major{border-left-color:var(--major);}
+  .cmt.sev-minor{border-left-color:var(--minor);}
+  .cmt.sev-nit{border-left-color:var(--nit);}
+  .cmt > summary{list-style:none;cursor:pointer;padding:.8rem .95rem;display:grid;gap:.35rem;}
+  .cmt > summary::-webkit-details-marker{display:none;}
+  .cmt .line1{display:flex;flex-wrap:wrap;gap:.5rem;align-items:center;}
+  .cmt .cid{font-family:"IBM Plex Mono",monospace;font-weight:600;font-size:.82rem;}
+  .chip{font-size:.7rem;text-transform:lowercase;letter-spacing:.02em;border-radius:999px;
+    padding:.1rem .5rem;border:1px solid var(--rule);color:var(--ink-soft);white-space:nowrap;}
+  .chip.cat{font-family:"IBM Plex Mono",monospace;}
+  .chip.sev-blocking{color:var(--blocking);border-color:var(--blocking);}
+  .chip.sev-major{color:var(--major);border-color:var(--major);}
+  .chip.state{font-family:"IBM Plex Mono",monospace;}
+  .chip.g1{background:var(--agree-bg);border-color:var(--agree);color:var(--agree);}
+  .chip.g2{background:var(--open-bg);border-color:var(--open);color:var(--open);}
+  .cmt .problem{font-size:.92rem;}
+  .cmt .loc{font-family:"IBM Plex Mono",monospace;font-size:.75rem;color:var(--ink-faint);}
+  .cmt .body{padding:0 .95rem .95rem;border-top:1px solid var(--rule-soft);}
+  .cmt .body h4{font-size:.72rem;text-transform:uppercase;letter-spacing:.08em;color:var(--ink-faint);
+    margin:.9rem 0 .3rem;}
+  .quote{border-left:2px solid var(--rule);padding-left:.7rem;color:var(--ink-soft);font-style:italic;
+    font-size:.86rem;margin:.3rem 0;}
+  .fix{font-size:.88rem;}
+
+  .thread{margin-top:.4rem;border-left:2px solid var(--rule-soft);padding-left:.8rem;}
+  .turn{margin:.55rem 0;font-size:.85rem;}
+  .turn .who{font-family:"IBM Plex Mono",monospace;font-size:.74rem;color:var(--ink-faint);}
+  .turn .stance{font-weight:600;}
+  .turn .stance.dispute{color:var(--disagree);}
+  .turn .stance.concede-and-fix,.turn .stance.partially-accept{color:var(--agree);}
+  .turn .ev{font-family:"IBM Plex Mono",monospace;font-size:.72rem;color:var(--ink-faint);display:block;margin-top:.15rem;}
+  .turn .reply{margin-top:.2rem;color:var(--ink-soft);}
+
+  .curate{display:flex;flex-wrap:wrap;gap:.5rem;align-items:center;margin-top:1rem;
+    padding-top:.8rem;border-top:1px dashed var(--rule);}
+  .curate .q{font-size:.8rem;color:var(--ink-faint);margin-right:.2rem;}
+  .curate button{font:inherit;font-size:.8rem;border-radius:7px;padding:.3rem .8rem;cursor:pointer;
+    border:1px solid var(--rule);background:var(--surface);color:var(--ink-soft);}
+  .curate button.acc[aria-pressed="true"]{background:var(--agree);border-color:var(--agree);color:#fff;}
+  .curate button.rej[aria-pressed="true"]{background:var(--disagree);border-color:var(--disagree);color:#fff;}
+  .curate input{font:inherit;font-size:.8rem;flex:1;min-width:140px;border:1px solid var(--rule);
+    border-radius:7px;padding:.3rem .5rem;background:var(--paper);color:var(--ink);}
+  .curate[data-disabled] button,.curate[data-disabled] input{opacity:.45;pointer-events:none;}
+
+  details.block{background:var(--surface);border:1px solid var(--rule-soft);border-radius:10px;
+    padding:.2rem .3rem;margin-top:.8rem;box-shadow:var(--shadow);}
+  details.block > summary{cursor:pointer;padding:.7rem .8rem;font-weight:600;font-size:.92rem;list-style:none;}
+  details.block > summary::-webkit-details-marker{display:none;}
+  details.block .inner{padding:0 .9rem .9rem;white-space:pre-wrap;font-size:.87rem;color:var(--ink-soft);}
+
+  footer{margin-top:3rem;padding-top:1.2rem;border-top:1px solid var(--rule);
+    color:var(--ink-faint);font-size:.8rem;}
+  footer code{color:var(--ink-soft);}
+  a{color:var(--accent-ink);}
+  a:focus-visible,button:focus-visible,summary:focus-visible{outline:2px solid var(--accent);outline-offset:2px;border-radius:3px;}
+</style>
+
+<div class="wrap" id="app">Loading report…</div>
+
+<script id="report-data" type="application/json">__REPORT_JSON__</script>
+<script>
+(function () {
+  "use strict";
+  var app = document.getElementById("app");
+  var data;
+  try { data = JSON.parse(document.getElementById("report-data").textContent); }
+  catch (e) { app.textContent = "This report has no data yet."; return; }
+
+  var m = data.meta || {};
+  var isLoop = m.mode === "loop";
+  var esc = function (s) { return String(s == null ? "" : s).replace(/[&<>"]/g, function (c) {
+    return ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[c]; }); };
+  var comments = data.comments || [];
+  var curation = {};              // id -> {decision, note}
+  var db = null, dbColl = null;
+
+  function counts() {
+    var g1 = comments.filter(function (c) { return c.group === 1; }).length;
+    var g2 = comments.filter(function (c) { return c.group === 2; }).length;
+    var curated = Object.keys(curation).filter(function (k) { return curation[k].decision; }).length;
+    return { g1: g1, g2: g2, curated: curated,
+             total: isLoop ? (g1 + g2) : comments.length,
+             blocking: comments.filter(function (c) { return c.severity === "blocking"; }).length };
+  }
+
+  function scoreSpan(s) {
+    if (s.initial == null) return '<span class="sc">' + esc(s.name) + " <b>" + esc(s.value != null ? s.value : "–") + "</b></span>";
+    var dir = s.final > s.initial ? "up" : (s.final < s.initial ? "down" : "");
+    var arrow = s.final === s.initial ? "" : ' <span class="' + dir + '">→ ' + esc(s.final) + "</span>";
+    return '<span class="sc">' + esc(s.name) + " <b>" + esc(s.initial) + "</b>" + arrow + "</span>";
+  }
+
+  function reviewerCard(r) {
+    return '<div class="rv"><div class="top"><span class="id">' + esc(r.id) + '</span>' +
+      '<span class="level">' + esc(r.level || "") + " thinking</span></div>" +
+      '<div class="scores">' + (r.scores || []).map(scoreSpan).join("") + "</div>" +
+      '<p class="sum">' + esc(r.summary || "") + "</p></div>";
+  }
+
+  function thread(c) {
+    if (!c.thread || !c.thread.length) return "";
+    return '<h4>Rebuttal thread</h4><div class="thread">' + c.thread.map(function (t) {
+      var reps = (t.replies || []).map(function (rp) {
+        return '<div class="reply">' + esc(rp.reviewer) + " · <b>" + esc(rp.reply) + "</b>" +
+          (rp.why ? " — " + esc(rp.why) : "") + "</div>";
+      }).join("");
+      return '<div class="turn"><span class="who">round ' + esc(t.k) +
+        " · response-researcher</span><br><span class=\"stance " + esc(t.stance) + '">' +
+        esc(t.stance) + "</span> — " + esc(t.note || "") +
+        (t.evidence ? '<span class="ev">evidence: ' + esc(t.evidence) + "</span>" : "") +
+        reps + "</div>";
+    }).join("") + "</div>";
+  }
+
+  function curateRow(c) {
+    if (!isLoop) return "";
+    var cur = curation[c.id] || {};
+    var dis = db ? "" : " data-disabled";
+    return '<div class="curate" data-id="' + esc(c.id) + '"' + dis + '>' +
+      '<span class="q">Apply this ' + (c.group === 1 ? "correction" : "action") + '?</span>' +
+      '<button class="acc" aria-pressed="' + (cur.decision === "accept") + '">Accept</button>' +
+      '<button class="rej" aria-pressed="' + (cur.decision === "reject") + '">Reject</button>' +
+      '<input type="text" placeholder="note (optional)" value="' + esc(cur.note || "") + '"></div>';
+  }
+
+  function commentEl(c) {
+    var d = document.createElement("details");
+    d.className = "cmt sev-" + esc(c.severity);
+    d.dataset.group = c.group || "";
+    d.dataset.sev = c.severity || "";
+    var stateChip = isLoop && c.state
+      ? '<span class="chip state ' + (c.group === 1 ? "g1" : c.group === 2 ? "g2" : "") + '">' +
+        esc(c.state) + "</span>" : "";
+    var groupChip = isLoop && c.group
+      ? '<span class="chip ' + (c.group === 1 ? "g1" : "g2") + '">Group ' + c.group + "</span>" : "";
+    d.innerHTML =
+      "<summary><div class=\"line1\">" +
+        '<span class="cid">' + esc(c.id) + "</span>" +
+        '<span class="chip cat">' + esc(c.category) + "</span>" +
+        '<span class="chip sev-' + esc(c.severity) + '">' + esc(c.severity) + "</span>" +
+        (c.actionability ? '<span class="chip">' + esc(c.actionability) + "</span>" : "") +
+        groupChip + stateChip +
+      "</div>" +
+      '<div class="problem">' + esc(c.problem) + "</div>" +
+      '<div class="loc">' + esc(c.location || "") + "</div></summary>" +
+      '<div class="body">' +
+        (c.quote ? '<h4>Anchor</h4><div class="quote">' + esc(c.quote) + "</div>" : "") +
+        (c.suggested_fix ? '<h4>Suggested fix</h4><div class="fix">' + esc(c.suggested_fix) + "</div>" : "") +
+        (c.final_fix ? '<h4>Agreed fix</h4><div class="fix">' + esc(c.final_fix) + "</div>" : "") +
+        thread(c) +
+        curateRow(c) +
+      "</div>";
+    return d;
+  }
+
+  var activeFilter = "all";
+  function applyFilter() {
+    app.querySelectorAll(".cmt").forEach(function (el) {
+      var g = el.dataset.group, s = el.dataset.sev, show = true;
+      if (activeFilter === "g1") show = g === "1";
+      else if (activeFilter === "g2") show = g === "2";
+      else if (activeFilter === "blocking") show = s === "blocking";
+      el.hidden = !show;
+    });
+  }
+
+  function render() {
+    var c = counts();
+    var decisionHtml = "";
+    if (isLoop && data.decision) {
+      var val = String(data.decision.value || "").toLowerCase();
+      var cls = val.indexOf("accept") > -1 ? "accept" : val.indexOf("reject") > -1 ? "reject" : "";
+      decisionHtml =
+        '<div class="decision"><p class="lbl">Area-chair decision</p>' +
+        '<p class="val ' + cls + '">' + esc(data.decision.value) + "</p>" +
+        '<p class="rationale">' + esc(data.decision.rationale || "") + "</p></div>";
+    } else if (data.recommendation) {
+      decisionHtml =
+        '<div class="decision"><p class="lbl">Recommendation</p>' +
+        '<p class="val">' + esc(data.recommendation.value) + "</p>" +
+        '<p class="rationale">' + esc(data.recommendation.rationale || "") + "</p></div>";
+    }
+
+    var tiles = isLoop
+      ? [["tile g1", c.g1, "Group 1 · agreed"], ["tile g2", c.g2, "Group 2 · unresolved"],
+         ["tile", c.blocking, "blocking"], ["tile", c.curated + "/" + c.total, "curated"]]
+      : [["tile", comments.length, "comments"], ["tile", c.blocking, "blocking"],
+         ["tile", (data.reviewers || []).length, "reviewers"], ["tile", m.year || "—", "venue year"]];
+
+    app.innerHTML =
+      (m.example ? '<span class="ribbon">Example run · sample data</span>' : "") +
+      '<header><p class="kicker">paper-review · ' + esc(isLoop ? "loop mode" : "static mode") + " report</p>" +
+      "<h1>" + esc(m.paper || "Untitled paper") + "</h1>" +
+      '<p class="venue">' + esc(m.venue || "") + " " + esc(m.year || "") +
+      (isLoop ? ' · <span class="mode">author-response loop, K=' + esc(m.K != null ? m.K : "?") + "</span>" : "") +
+      (m.generated ? " · " + esc(m.generated) : "") + "</p></header>" +
+      '<div class="summary">' + decisionHtml +
+      '<div class="tiles">' + tiles.map(function (t) {
+        return '<div class="' + t[0] + '"><div class="n">' + esc(t[1]) + '</div><div class="k">' + esc(t[2]) + "</div></div>";
+      }).join("") + "</div></div>" +
+      "<h2>Reviewers</h2><div class=\"reviewers\">" + (data.reviewers || []).map(reviewerCard).join("") + "</div>" +
+      "<h2>" + (isLoop ? "Comments, threads &amp; curation" : "Comments") + "</h2>" +
+      (isLoop && !db ? '<p class="roflag">Read-only preview — the curation store isn’t available in this view. ' +
+        "Tell Claude in chat which comments to accept or reject.</p>" : "") +
+      (isLoop ? '<p class="curbar"><b id="curn">' + c.curated + "</b> of <b>" + c.total +
+        "</b> comments curated. Accepted Group 1 items get applied to the paper; accepted Group 2 items become the action list.</p>" : "") +
+      '<div class="filters" id="filters">' +
+        ['all', 'g1', 'g2', 'blocking'].map(function (f) {
+          if ((f === "g1" || f === "g2") && !isLoop) return "";
+          var lab = { all: "All", g1: "Group 1", g2: "Group 2", blocking: "Blocking" }[f];
+          return '<button data-f="' + f + '" aria-pressed="' + (f === "all") + '">' + lab + "</button>";
+        }).join("") + "</div>" +
+      '<div id="clist"></div>' +
+      (isLoop && data.response_letter
+        ? '<details class="block"><summary>Response to reviewers (draft letter)</summary><div class="inner">' +
+          esc(data.response_letter) + "</div></details>" : "") +
+      "<footer>Run folder: <code>" + esc(m.run_folder || "(this run)") + "</code>" +
+      (m.annotated_pdf ? " · annotated PDF: <code>" + esc(m.annotated_pdf) + "</code>" : "") +
+      " · source: <code>skills/paper-review/assets/review-report-template.html</code></footer>";
+
+    var list = app.querySelector("#clist");
+    comments.forEach(function (c) { list.appendChild(commentEl(c)); });
+
+    app.querySelector("#filters").addEventListener("click", function (e) {
+      var b = e.target.closest("button[data-f]"); if (!b) return;
+      activeFilter = b.dataset.f;
+      app.querySelectorAll("#filters button").forEach(function (x) {
+        x.setAttribute("aria-pressed", x === b); });
+      applyFilter();
+    });
+
+    if (isLoop) app.addEventListener("click", onCurateClick);
+    if (isLoop) app.addEventListener("change", onNoteChange);
+  }
+
+  function setCuration(id, patch) {
+    curation[id] = Object.assign({}, curation[id], patch);
+    var row = app.querySelector('.curate[data-id="' + id + '"]');
+    if (row) {
+      row.querySelector(".acc").setAttribute("aria-pressed", curation[id].decision === "accept");
+      row.querySelector(".rej").setAttribute("aria-pressed", curation[id].decision === "reject");
+    }
+    var n = Object.keys(curation).filter(function (k) { return curation[k].decision; }).length;
+    var el = app.querySelector("#curn"); if (el) el.textContent = n;
+  }
+
+  function persist(id) {
+    if (!dbColl) return;
+    var c = comments.find(function (x) { return x.id === id; }) || {};
+    dbColl.doc(id).set({
+      id: id, group: c.group || null,
+      decision: curation[id].decision || null,
+      note: curation[id].note || "",
+      at: new Date().toISOString()
+    }).catch(function () {});
+  }
+
+  function onCurateClick(e) {
+    var b = e.target.closest(".curate button"); if (!b) return;
+    var row = b.closest(".curate"); if (row.hasAttribute("data-disabled")) return;
+    var id = row.dataset.id;
+    var want = b.classList.contains("acc") ? "accept" : "reject";
+    var cur = (curation[id] || {}).decision;
+    setCuration(id, { decision: cur === want ? null : want });
+    persist(id);
+  }
+  function onNoteChange(e) {
+    var inp = e.target.closest(".curate input"); if (!inp) return;
+    var row = inp.closest(".curate"); var id = row.dataset.id;
+    setCuration(id, { note: inp.value });
+    persist(id);
+  }
+
+  render();
+
+  if (isLoop && window.claude && window.claude.use) {
+    window.claude.use("db").then(function (ns) {
+      if (!ns) return;
+      db = ns; dbColl = ns.collection("curation");
+      dbColl.onSnapshot(function (snap) {
+        (snap.docs || []).forEach(function (doc) {
+          var d = doc.data() || {};
+          curation[doc.id] = { decision: d.decision || null, note: d.note || "" };
+        });
+        render();          // re-render once with the store's state + live control
+        activeFilter = "all";
+      }, function () {});
+    });
+  }
+})();
+</script>
