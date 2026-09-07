@@ -38,6 +38,28 @@ For N > 3, cycle deep → medium → light. Reviewers are **never** passed the
 `--code` / `--results` / `--refs` paths or the `evidence/` outputs (loop mode) —
 their inputs are the paper, the web, and (in rebuttal-eval) the other reviews.
 
+### Field profile (`--field`) and `process_model`
+
+Step 1 requires a paper-type: `empirical-ml`, `theory-proofs`,
+`systems-measurement`, `signal-processing-eng`, `hci-qualitative`,
+`dataset-benchmark`, `applied-clinical`, or `position-survey` (schema:
+`prompts/field-profile-spec.md`). If the user does not pass `--field`, the skill
+proposes one from the title/abstract and asks for confirmation — it never
+defaults silently to `empirical-ml`.
+
+`venue-researcher` resolves `venue-profile.md`'s `process_model`
+(`panel-plus-metareviewer` / `editor-mediated-referees` / `light-single-pass` /
+`rolling-revision`) and `response_routing`. These drive:
+
+- **static step 6** — `review-area-chair` runs the merge variant only for
+  `panel-plus-metareviewer`; otherwise an editor-summary / light-note / per-round
+  variant (no merged comment list).
+- **loop step 7L** — reviewer-visible K-round rebuttal *vs.* a single
+  chair-mediated pass (reviewers not re-spawned; `thread_state.py --mediator
+  chair`) *vs.* an editor-mediated revision round. Route the response the way the
+  venue routes it: for `chair-or-editor-only` venues the `paper-reviewer` agents
+  never receive the rebuttal.
+
 The skill runs in the main session and spawns agents with the `Agent` tool
 (`subagent_type` = the rendered agent name). The panel's N reviewers run in
 parallel; in loop mode so do their rebuttal-eval calls each round. In loop mode
@@ -75,3 +97,18 @@ report page; the skill then reads their choices with the `Artifact` tool
 `curation/decisions.json`. If the report's `db` is unavailable, the user states
 choices in chat and the skill writes the file. It must not run step 12L (apply
 corrections / build action list) until `curation/decisions.json` exists.
+
+## Concrete fixes + challenge / re-review
+
+- Every comment carries a typed `fix` (`review-comment-taxonomy.md`).
+  `scripts/check_fixes.py` runs before deliverable B / B1 is finalised and after
+  a challenge rewrites rows — a non-zero exit blocks the run.
+- **`challenge <id>: <argument>`** (chat): the skill writes
+  `cycle-<n>/challenge/requests.json`, then loops `response-researcher`
+  (challenge mode) ↔ the owning `paper-reviewer` for `--J` rounds (default 2)
+  via `thread_state.py`. `--via-chair` routes through `review-area-chair`.
+- **`re-review`** (chat) or `paper-review re-review <run-folder>`: only on this
+  explicit request does the skill re-run steps 5–10 on the latest
+  `corrected/paper_v<n>/` (panel in re-review mode, then `review-area-chair` in
+  reconciliation mode → `cycle-<n+1>/`). Never a continuation of "apply".
+  `--rescore` also re-issues the decision.

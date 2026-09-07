@@ -8,13 +8,22 @@ forced resolution at k == K, writes the file back, and prints a JSON status the
 skill uses to decide whether to continue.
 
     thread_state.py --threads comment-threads.json --round K --K 2 \
-        --stances stances.json --replies replies.json [--init comments.json]
+        --stances stances.json --replies replies.json [--init comments.json] \
+        [--mediator reviewers|chair]
 
 stances.json : [{"id","stance","researcher_note","evidence":[...],"final_fix"}]
 replies.json : [{"id","reviewer","reply","why","severity"}]
 comments.json (only with --init): [{"id","reviewer","category","severity"}]
 
-Vocabulary and the transition table are defined in
+--mediator reviewers (default): the raising reviewer's reply moves the thread,
+  using the rebuttal-protocol vocabulary
+  (resolved/partially-resolved/unconvinced/need-more/withdraw).
+--mediator chair: for venues whose author response is not shared with the
+  reviewers (response_routing = chair-or-editor-only). The reply with
+  reviewer == "AC" is authoritative and terminal in a single round; it uses the
+  chair vocabulary addressed/partly/upheld/moot.
+
+Vocabulary and the transition tables are defined in
 prompts/rebuttal-protocol.md and prompts/comment-resolution-states.md.
 """
 from __future__ import annotations
@@ -49,6 +58,23 @@ TABLE = {
     ("need-clarification", "withdraw"): "rebutted",
 }
 
+# --mediator chair: (stance, chair ruling) -> new state. The chair is the sole
+# re-evaluator; every ruling except "partly" is terminal in one round.
+CHAIR_TABLE = {
+    ("concede-and-fix", "addressed"): "accepted",
+    ("partially-accept", "addressed"): "accepted",
+    ("dispute", "addressed"): "rebutted",
+    ("concede-cannot-fix", "addressed"): "rebutted",
+    ("need-clarification", "addressed"): "rebutted",
+    ("dispute", "upheld"): "unresolved_disagreement",
+    ("partially-accept", "upheld"): "unresolved_disagreement",
+    ("concede-and-fix", "upheld"): "unresolved_disagreement",
+    ("concede-cannot-fix", "upheld"): "unresolved_insufficient_info",
+    ("need-clarification", "upheld"): "unresolved_insufficient_info",
+    # "partly" -> in_debate for any stance (handled below, then forced at k==K)
+    # "moot" -> rebutted for any stance (handled below)
+}
+
 
 def load(path):
     with open(path, encoding="utf-8") as fh:
@@ -63,6 +89,8 @@ def main() -> int:
     ap.add_argument("--stances", required=True)
     ap.add_argument("--replies", required=True)
     ap.add_argument("--init")
+    ap.add_argument("--mediator", choices=["reviewers", "chair"],
+                    default="reviewers")
     args = ap.parse_args()
 
     if args.init:
@@ -91,8 +119,12 @@ def main() -> int:
             continue
         st = stances.get(tid)
         reps = replies_by_id.get(tid, [])
-        # the raising reviewer's reply is the one that moves state
-        own = next((r for r in reps if r.get("reviewer") == t["reviewer"]), None)
+        if args.mediator == "chair":
+            # the chair's ruling (reviewer == "AC") is authoritative
+            own = next((r for r in reps if r.get("reviewer") == "AC"), None)
+        else:
+            # the raising reviewer's reply is the one that moves state
+            own = next((r for r in reps if r.get("reviewer") == t["reviewer"]), None)
         reply = own["reply"] if own else (reps[0]["reply"] if reps else None)
         if own and own.get("severity"):
             t["severity_final"] = own["severity"]
@@ -100,6 +132,15 @@ def main() -> int:
         prev = t["state"]
         if st is None:
             new = prev                      # comment not addressed this round
+        elif args.mediator == "chair":
+            if reply == "partly":
+                new = "in_debate"
+            elif reply == "moot":
+                new = "rebutted"
+            else:
+                new = CHAIR_TABLE.get((st["stance"], reply), "in_debate")
+            if st.get("final_fix") and st["final_fix"] != "none":
+                t["final_fix"] = st["final_fix"]
         else:
             new = TABLE.get((st["stance"], reply), "in_debate")
             if st.get("final_fix") and st["final_fix"] != "none":

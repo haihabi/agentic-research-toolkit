@@ -18,8 +18,31 @@ discovered per run.
 | Synthesis role | area chair / senior program committee / meta-reviewer | handling editor / associate editor | organiser |
 | Author interaction | rebuttal in a fixed window, sometimes discussion | response-to-reviewers letter each round | often none |
 | Decision set | accept / (oral/poster/spotlight) / borderline / reject | accept / minor revision / major revision / reject & resubmit / reject | accept / reject (non-archival common) |
-| Rating | almost always numeric | often none to authors; sometimes a confidential 1–N to the editor | light or none |
+| Rating | numeric **or per-criterion ordinal categories** (IEEE/society) | often none to authors; sometimes a confidential 1–N to the editor | light or none |
 | Extra requirements | reproducibility checklist, broader-impact / ethics statement, anonymity | data & code availability, reporting standards, competing interests, funding, ethics/IRB | usually minimal |
+
+### `process_model` — the axis that actually drives the skill
+
+`venue_type` alone does not tell you how to run the review. Set `process_model`:
+
+| `process_model` | typical venue | synthesis step | author response goes to |
+|---|---|---|---|
+| `panel-plus-metareviewer` | NeurIPS / ICLR / ICML / CVPR / ACL | AC merges reviews into one meta-review + unified comment list | the reviewers (reviewer-visible), who re-score |
+| `editor-mediated-referees` | most journals; **IEEE / SPS conferences (ICASSP, ICIP, ICC)** | handling editor / TC chair writes a summary marking each point binding vs. advisory; **referee reports are not merged** | the **chair / editor only** — reviewers do not see it (ICASSP: "rebuttals are not shared with the original reviewers") |
+| `light-single-pass` | workshops | organiser writes a short reconciling note | usually nobody — no response stage |
+| `rolling-revision` | IEEE Transactions & other journals; security venues (USENIX, S&P) with "major revision" | per-round editor decision; same referees see the revision | the editor, then back to the same referees next round |
+
+### Ordinal-category forms (IEEE / society venues)
+
+Many IEEE conferences score each criterion with **named categories, not a
+number**: e.g. Importance/Relevance = "Of broad interest / Of sufficient
+interest / Of limited interest / Irrelevant"; Novelty = "Very original … Has
+been done before"; Technical correctness = "Technically correct / Minor errors /
+Has major problems". There is also a paper-type field and an "award quality"
+flag, and **experimental validation is scaled by paper type** ("theoretical
+papers may need none"). Capture every label set verbatim; never flatten to 1–N.
+Presentation / English nits are explicitly not grounds for rejection at these
+venues.
 
 ## What varies venue to venue (the profile's slots)
 
@@ -76,7 +99,16 @@ discovered per run.
 
 ## Fallbacks
 
-If the real form cannot be found, the skill uses `assets/fallback-forms/`:
-`conference-ml.md`, `conference-ieee.md`, or `journal-referee-report.md`, chosen
-by `venue_type` and publisher. Deliverable A must then state, in bold, that a
-generic fallback form was used.
+If the real form cannot be found, the skill uses `assets/fallback-forms/`, chosen
+by `venue_type` / `process_model` / publisher:
+
+| Fallback | Use when |
+|---|---|
+| `conference-ml.md` | ML/CS conference, numeric scales, reviewer-visible rebuttal |
+| `conference-ieee.md` | IEEE / society conference — ordinal-category form, chair-only rebuttal |
+| `journal-referee-report.md` | general journal (IEEE Transactions / Nature-shaped) |
+| `journal-medical.md` | clinical / biomedical journal (ICMJE-aligned) |
+| `theory-venue.md` | theory conference — proof-checking, experiments not expected |
+
+Deliverable A must then state, in bold, that a generic fallback form was used and
+name which.

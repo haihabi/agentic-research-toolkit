@@ -6,6 +6,15 @@ notes, and bump `last_reviewed` in `prompts/paper-review-base.md`.
 
 `last_reviewed: 2026-09-06`
 
+**Source-balance note.** Section A is deliberately spread across venue families
+so the distilled base prompt is not an ML-conference prompt in disguise: ML/CS
+conferences, IEEE conferences, society/engineering journals, multidisciplinary
+and life-science journals, security venues with revision cycles, theory venues,
+and social-science / humanities venues each get a subsection, and each is
+weighted roughly equally when distilling `paper-review-base.md`. Anything that is
+specific to one family (numeric scales, rebuttal mechanics, the experiment bar)
+belongs in a **field profile** or the **venue profile**, not the base.
+
 ---
 
 ## A. Human reviewer / editor guidance
@@ -58,25 +67,51 @@ notes, and bump `last_reviewed` in `prompts/paper-review-base.md`.
   confidence rating; heavy emphasis on not rejecting for missing experiments the
   paper did not promise, and on justifying the rating in the text.
 
-### IEEE — reviewer guidance and society editorial procedures
-IEEE Author/Reviewer resources (`https://www.ieee.org/`), plus a society example:
+### IEEE conferences — society editorial procedures (ICASSP / SPS family)
 SPS Conference Editorial Procedures for ICASSP
-`https://2025.ieeeicassp.org/editorial-procedures/`
+`https://2025.ieeeicassp.org/editorial-procedures/` · SPS Guidelines for
+Reviewers `https://signalprocessingsociety.org/publications-resources/guidelines-reviewers`
 
-- Goal, quoted in substance: accept papers that are "technically sound and make
-  an original and substantial contribution"; rate on **quality, relevance, and
-  correctness**.
-- Scoring norm: use the whole range; give the top/bottom score when deserved and
-  defensible; reserve mid scores for genuinely middling papers, not for
-  low-confidence or low-effort reviews.
-- Review-quality norm: sketchy / short / superficial reviews are not acceptable;
-  be specific and detailed; be fair.
-- Conferences vs. Transactions: IEEE Transactions ("Information for Reviewers"
-  pages, per journal) use longer referee reports and a recommendation set that
-  includes **revise & resubmit** (author revision rounds), unlike the
+- **Process.** Track-chair initial check (desk reject possible) → **at least
+  three** reviewers from the relevant area → reviews returned to authors → authors
+  get **at least one week for an optional rebuttal that goes to the TC / Area
+  Chairs and is *not* shared with the original reviewers** → TC chairs decide.
+  One round; outcome is accept / reject.
+- **Review model.** Single-anonymous: reviewers see author names; reviewers are
+  anonymous to authors and to each other.
+- **Form is per-criterion ordinal categories, not a numeric scale.** Criteria
+  seen on the form: Confidence in evaluation; Importance/Relevance; Paper type;
+  Originality/Novelty; Theoretical development; Experimental validation; Clarity
+  of presentation; Reference to prior work; Overall evaluation; Award quality.
+  Example label sets (verbatim-style): Importance = "Of broad interest / Of
+  sufficient interest / Of limited interest / Irrelevant"; Novelty = "Very
+  original … Has been done before"; Correctness = "Technically correct / Minor
+  errors / Has major problems"; Experimental validation is **explicitly scaled by
+  paper type** ("theoretical papers may need none").
+- **Norms, quoted in substance:** accept work that is "technically sound and
+  makes an original and substantial contribution"; use the whole score range,
+  top/bottom when deserved and defensible, mid only for genuinely middling
+  papers (not for low confidence or low effort); scores must be consistent with
+  the comments; sketchy / short reviews are not acceptable; **"disregard minor
+  formatting issues"** — presentation nits are not a reason to reject.
+- IEEE publication-ethics / plagiarism policy and no-manuscript-to-LLM rule
+  apply (`https://www.ieee.org/publications/rights/plagiarism/plagiarism.html`).
+  → We adopt: `process_model = editor-mediated-referees` with a **chair-only**
+  response channel; ordinal-criteria deliverable layout; experiment bar deferred
+  to the field profile.
+
+### IEEE Transactions and other engineering journals
+Per-journal "Information for Reviewers" on IEEE Xplore / the society site; SPS
+Guidelines for Reviewers (above) for the shape.
+
+- Longer referee reports: Summary → novelty → major comments (rejection- or
+  revision-worthy) → minor comments; plus confidential comments to the Associate
+  Editor and a statement of the referee's expertise.
+- Recommendation set includes author **revision rounds** ("R" reject / "RQ"
+  major revision / "AQ" accept with mandatory revisions / "A" accept), unlike the
   single-shot accept/reject of most conferences.
-- IEEE publication ethics / plagiarism policy applies
-  (`https://www.ieee.org/publications/rights/plagiarism/plagiarism.html`).
+  → We adopt: `process_model = rolling-revision`; decision vocabulary from the
+  venue profile; the handling editor, not a merge, synthesises.
 
 ### Nature / Springer Nature — peer-review policy and guide to referees
 `https://www.nature.com/nature/for-referees` (guide to referees; login-gated,
@@ -96,6 +131,68 @@ canonical content well established) ·
 - Required around a submission: reporting summary / reporting standards
   checklists (life sciences), data availability statement, code availability
   statement, competing-interests declaration.
+
+### Security / systems conferences with a revision cycle
+USENIX Security, IEEE S&P ("Oakland"), ACM CCS, NDSS call-for-papers and
+reviewer FAQs (fetched per run).
+
+- Multiple submission cycles per year; a review round can end in **Accept /
+  Major Revision / Reject**, and a "Major Revision" goes back to (largely) the
+  same reviewers against a written revision plan — a bounded revision cycle
+  rather than a one-shot rebuttal or a multi-year journal loop.
+- Reviewer criteria stress threat-model soundness, whether the evaluation
+  supports the security claims, and ethics (the "menlo report" framing;
+  human-subjects / vulnerability-disclosure handling is often a required
+  section).
+  → We adopt: `process_model = rolling-revision` with a small round cap;
+  ethics-and-compliance is frequently `blocking` here, per the venue profile.
+
+### ACM journals (TOMS, TOCHI, CSUR, PACMPL, …)
+ACM "Information for Reviewers" and the journal's submission page.
+
+- Handling-editor model, prose referee reports, revision ladder (minor / major /
+  reject), no author-facing numeric score. TOCHI and CSUR reviews are long and
+  discursive; PACMPL (POPL/OOPSLA) runs a conference-like round with author
+  response but journal-style reports.
+  → We adopt: `process_model` per the venue profile (`editor-mediated-referees`
+  or `rolling-revision`); never a unified merged comment list.
+
+### Clinical / biomedical journals — ICMJE Recommendations
+`https://www.icmje.org/recommendations/` plus a journal exemplar (BMJ / PLOS
+Medicine open peer review; *Lancet* / *NEJM* reviewer guidance).
+
+- Referees address: importance of the question, originality, study design and
+  conduct (randomisation, blinding, confounding, pre-registration, CONSORT /
+  STROBE / PRISMA adherence), statistics and their reporting, whether
+  conclusions are supported, and research-ethics approval / trial registration /
+  data sharing / competing interests.
+- Structured reporting-guideline checklists are often mandatory; the field
+  profile `applied-clinical` carries them.
+  → We adopt: a `journal-medical` fallback form; reporting-guideline adherence as
+  a first-class validity axis for this field profile.
+
+### Theory venues (STOC, FOCS, SODA, CCC, ITCS)
+Venue call-for-papers and PC instructions (fetched per run); ACM SIGACT norms.
+
+- The review checks **the correctness and completeness of the proofs**,
+  the significance of the result and of the techniques, and relation to prior
+  work; experiments are usually not expected and their absence is not a
+  weakness. Some venues run a rebuttal, some do not. PC-heavy, often no numeric
+  rubric beyond an accept/reject lean and a confidence.
+  → We adopt: field profile `theory-proofs` (validity = proof-checking);
+  `missing-results` is suppressed unless the paper itself claims an empirical
+  contribution.
+
+### Social-science / humanities venues (APSA, ASA, ACL* for CL, CHI for HCI)
+Association reviewer guidelines (fetched per run).
+
+- Emphasis on theoretical framing and contribution to a scholarly conversation,
+  appropriateness of method to question (qualitative, quantitative, mixed,
+  archival, interpretive), positionality and reflexivity for qualitative work,
+  and engagement with the relevant literature. Replicability is framed as
+  transparency of process rather than a re-run of code.
+  → We adopt: field profiles `hci-qualitative` and `position-survey`; validity
+  criteria that do not assume a benchmark.
 
 ### OpenReview / manuscript-system live forms
 Fetched per run for the exact venue+year. OpenReview venue pages expose the

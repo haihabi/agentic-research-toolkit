@@ -40,11 +40,13 @@ panel behaves like a real committee. The agent does not choose its own level.
 
 ### Input
 
-- `review-prompt.md` — the composed tailored prompt (base guidance + this
-  venue's profile + the comment taxonomy + the per-reviewer output spec).
+- `review-prompt.md` — the composed tailored prompt (base guidance + the **field
+  profile** + this venue's profile + the comment taxonomy + the per-reviewer
+  output spec + the `Required checks for this review` block).
 - The paper: PDF, and the flattened LaTeX with a `section → file:line` map when
   available.
-- One emphasis persona (P1 / P2 / P3) from `references/reviewer-personas.md`.
+- One emphasis persona (P1 / P2 / P3) from `references/reviewer-personas.md`,
+  specialised by the field profile's §6.
 - A reviewer id (`R1`, `R2`, …).
 
 ### Task
@@ -67,6 +69,21 @@ panel behaves like a real committee. The agent does not choose its own level.
   (≤ 20 words) from the paper.
 - One taxonomy category per comment; calibrate severity honestly; reserve
   `blocking` for things that would actually flip your recommendation.
+- **Judge validity, evidence, and novelty by the field profile**, not a generic
+  empirical-ML rubric. Honour its §8 "do-not-import" list — e.g. do not raise
+  `missing-results` for a `theory-proofs` paper that makes no empirical claim,
+  and do not demand benchmark baselines from a `signal-processing-eng` method
+  paper.
+- The reflection pass must confirm the review addresses every item in the
+  `Required checks for this review` block.
+- **Every comment carries a typed `fix`** (`review-comment-taxonomy.md` → "The
+  `fix` object") of the shape its `actionability` requires: `kind: edit` with
+  verbatim `find` (copy-pasteable from the paper) and full `replace` text;
+  `kind: work_spec` with a concrete design and an `acceptance` test;
+  `kind: response_text`; or `kind: question` with per-answer branches. Free-text
+  advice is not a fix — the reflection pass rewrites any such into a typed one.
+- Fill the venue's form exactly as given — its ordinal category labels if that is
+  what it uses; no invented numeric score.
 - No fabricated references, results, or quotes.
 - No bias instruction, ever. If genuinely unsure, lower `confidence`.
 - Do not identify or speculate about the authors.
@@ -76,6 +93,11 @@ panel behaves like a real committee. The agent does not choose its own level.
 ---
 
 ## Mode: rebuttal-eval (loop mode)
+
+**Only runs when `venue-profile.md` `response_routing` is `reviewer-visible`.**
+At venues where the author response goes to the chair / editor only (e.g. IEEE
+SPS conferences), this mode is not invoked — `review-area-chair` adjudicates the
+response instead, and you are not re-spawned.
 
 ### Input
 
@@ -93,13 +115,21 @@ For **each of your own comments** still `open` / `in_debate`, write one entry in
   `unconvinced` / `need-more` / `withdraw`;
 - if `unconvinced` / `partially-resolved`: exactly why, and what would convince
   you;
-- optionally `severity: <new>` for that comment.
+- optionally `severity: <new>` for that comment;
+- on `resolved` / `withdraw` where a text change is now agreed but the
+  researcher's `final_fix` is missing or wrong, author the corrected typed `fix`
+  yourself.
 
 You may add a one-line note agreeing or disagreeing with another reviewer's
 point, but only your own comments change state.
 
 After the final round, submit `reviews/reviewer-<i>-post-rebuttal.md`: revised
 scores (`old -> new` with a one-line reason each) and any overall stance change.
+
+This same mode handles a **user challenge** (`challenge/round-<j>/`): the entry
+you reply to opens with the user's argument carried by `response-researcher`;
+reply with the same vocabulary. Terminal-upheld after `J` rounds → the skill
+marks the comment `challenged-upheld`.
 
 ### Rules
 
@@ -111,3 +141,30 @@ scores (`old -> new` with a one-line reason each) and any overall stance change.
   weigh the `evidence-gatherer` finding the researcher quoted, at its stated
   confidence.
 - Stay terse.
+
+---
+
+## Mode: re-review (challenge/re-review cycle)
+
+The user applied edits to the paper and asked for a re-review. You review the
+**revised** paper (`corrected/paper_v<n>/`) with the same `review-prompt.md`, plus
+two extra inputs:
+
+- `cycle-<n>/review-B.json` (or `review-B1.json`) — the prior review's comments;
+- `cycle-<n>/corrected/corrections.diff` — exactly what changed.
+
+### Task
+
+1. Review the revised paper as in review mode (whole read, persona, taxonomy,
+   typed `fix` on every new comment).
+2. For **each prior comment**, add a line to `reviews/reviewer-<i>-reconcile.md`:
+   `resolved` (the change addresses it — say how), `persists` (still a problem —
+   say why the edit was insufficient), or `superseded` (the revision made it moot).
+3. New problems introduced by the revision are ordinary new comments, tagged
+   `regression: true` in their metadata.
+
+### Rules
+
+- Do not re-raise a `resolved` prior comment under a new id.
+- Judge only the current text; the diff is context, not a target.
+- Stay terse in the reconcile file; full detail goes in the new comments.

@@ -242,6 +242,35 @@
       '<input type="text" placeholder="note (optional)" value="' + esc(cur.note || "") + '"></div>';
   }
 
+  function renderFix(fix) {
+    if (!fix) return "";
+    if (typeof fix === "string") return '<div class="fix">' + esc(fix) + "</div>";
+    if (fix.kind === "edit") {
+      return '<div class="fix">' + (fix.edits || []).map(function (e) {
+        var loc = [e.file, e.line].filter(Boolean).join(":");
+        return (loc ? '<div class="loc">' + esc(loc) + "</div>" : "") +
+          '<div class="quote">− ' + esc(e.find || "") + "</div>" +
+          '<div class="quote">＋ ' + esc(e.replace || "∅ (delete)") + "</div>" +
+          (e.why ? "<div>" + esc(e.why) + "</div>" : "");
+      }).join('<hr style="border:0;border-top:1px dashed var(--bd,#ccc);margin:.4em 0">') + "</div>";
+    }
+    if (fix.kind === "work_spec") {
+      var w = fix.work || {};
+      return '<div class="fix"><b>' + esc(w.kind || "new work") + "</b>" +
+        ["goal", "design", "conditions", "metrics", "data", "statistics",
+         "proof_obligation", "acceptance", "effort"].map(function (k) {
+          var v = w[k]; if (!v) return "";
+          if (Array.isArray(v)) v = v.join(" · ");
+          return "<div><i>" + k + ":</i> " + esc(v) + "</div>";
+        }).join("") + "</div>";
+    }
+    if (fix.kind === "response_text")
+      return '<div class="fix"><i>response text:</i> ' + esc(fix.text || "") + "</div>";
+    if (fix.kind === "question")
+      return '<div class="fix"><i>ask authors:</i> ' + esc(fix.question || "") + "</div>";
+    return '<div class="fix">' + esc(JSON.stringify(fix)) + "</div>";
+  }
+
   function commentEl(c) {
     var d = document.createElement("details");
     d.className = "cmt sev-" + esc(c.severity);
@@ -264,8 +293,11 @@
       '<div class="loc">' + esc(c.location || "") + "</div></summary>" +
       '<div class="body">' +
         (c.quote ? '<h4>Anchor</h4><div class="quote">' + esc(c.quote) + "</div>" : "") +
-        (c.suggested_fix ? '<h4>Suggested fix</h4><div class="fix">' + esc(c.suggested_fix) + "</div>" : "") +
-        (c.final_fix ? '<h4>Agreed fix</h4><div class="fix">' + esc(c.final_fix) + "</div>" : "") +
+        (c.fix ? "<h4>Fix</h4>" + renderFix(c.fix) : "") +
+        (c.final_fix ? "<h4>Agreed fix (post-rebuttal)</h4>" + renderFix(c.final_fix) : "") +
+        (c.challenge ? '<h4>Challenge</h4><div class="fix">' +
+          esc(c.challenge.state || "") + " after " + esc(c.challenge.rounds || "?") +
+          " round(s) — " + esc(c.challenge.outcome || "") + "</div>" : "") +
         thread(c) +
         curateRow(c) +
       "</div>";

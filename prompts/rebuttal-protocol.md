@@ -9,6 +9,18 @@ bookkeeping; this file defines the vocabulary and the conduct.
 
 ---
 
+## Which variant runs
+
+Set by `venue-profile.md` `response_routing`:
+
+- **`reviewer-visible`** — the K-round loop below: `response-researcher` ↔
+  reviewers, `thread_state.py` default mode. Most ML conferences.
+- **`chair-or-editor-only`** — the **chair-mediated variant** (section at the
+  end): one rebuttal, adjudicated by `review-area-chair`; the reviewers never
+  see it and are not re-spawned. IEEE / SPS conferences ("rebuttals are not
+  shared with the original reviewers").
+- **`none`** — no response stage; the skill goes straight to the decision.
+
 ## Participants and information sets
 
 - **`response-researcher`** — acts for the authors. Sees: the paper, all N raw
@@ -19,8 +31,10 @@ bookkeeping; this file defines the vocabulary and the conduct.
   reviews, now at their assigned thinking level. Sees: the paper, the public
   web, **the other reviewers' reviews and replies** (open discussion), and the
   researcher's rebuttal. **Never** the codebase, result files, or any internal
-  author document.
-- **`review-area-chair`** — not present during the loop. Enters once, after it.
+  author document. *Absent in the chair-mediated variant.*
+- **`review-area-chair`** — not present during the reviewer-visible loop; enters
+  once, after it. In the chair-mediated variant it is the **only** evaluator of
+  the rebuttal.
 
 ## One round
 
@@ -38,7 +52,7 @@ bookkeeping; this file defines the vocabulary and the conduct.
 
 | Stance | Meaning | Must include |
 |---|---|---|
-| `concede-and-fix` | The comment is right; here is the concrete correction. | The exact text/structure change (`final_fix`), and where it goes. |
+| `concede-and-fix` | The comment is right; here is the concrete correction. | A typed `fix` object as `final_fix` (`review-comment-taxonomy.md` schema): `kind: edit` with verbatim find/replace, or `kind: work_spec` with an `acceptance` test. |
 | `concede-cannot-fix` | The comment is right, but it cannot be addressed with what exists (needs new experiments / data / knowledge the authors do not have here). | What specifically is missing and what would be required. |
 | `partially-accept` | Part is right; part is not. | Which part is conceded (+ fix) and which is disputed (+ argument). |
 | `dispute` | The comment is mistaken or rests on a misreading. | A specific, evidence-backed argument; a pointer to the paper text or an `evidence-gatherer` finding. |
@@ -133,3 +147,58 @@ the per-round mapping:
 - No fabricated results, references, or quotes. "We could run X" is not "we ran X".
 - Attack the argument, not the participant.
 - Keep each entry short: stance, the point, the evidence, done.
+
+## Chair-mediated variant (`response_routing: chair-or-editor-only`)
+
+One pass, no reviewer replies.
+
+1. `response-researcher` writes a single `rebuttal/round-1/rebuttal.md` against
+   every `open` comment, same stance vocabulary and evidence rule as above.
+2. `review-area-chair` (chair-mediated response mode) rules on **each addressed
+   comment** with one line of reasoning, using the chair vocabulary:
+
+   | Chair ruling | Meaning |
+   |---|---|
+   | `addressed` | the response settles it |
+   | `partly` | part settled, a named part remains |
+   | `upheld` | the response does not settle it; the weakness stands |
+   | `moot` | no longer relevant given other conceded changes |
+
+3. The skill builds `replies.json` from the chair's rulings with
+   `reviewer: "AC"` and runs
+   `thread_state.py --mediator chair --round 1 --K 1`. State mapping
+   (`CHAIR_TABLE` in the script):
+
+   | Researcher stance | Chair ruling | New state |
+   |---|---|---|
+   | `concede-and-fix` / `partially-accept` | `addressed` | `accepted` (with `final_fix`) |
+   | `dispute` / `concede-cannot-fix` / `need-clarification` | `addressed` | `rebutted` |
+   | any | `partly` | `in_debate` → forced terminal at round end |
+   | any | `moot` | `rebutted` |
+   | `dispute` / `partially-accept` / `concede-and-fix` | `upheld` | `unresolved_disagreement` |
+   | `concede-cannot-fix` / `need-clarification` | `upheld` | `unresolved_insufficient_info` |
+   | (comment not addressed by the rebuttal) | — | forced terminal at round end |
+
+Terminal states and the mapping to output groups are unchanged
+(`comment-resolution-states.md`).
+
+## User-seeded challenge (post-review, `challenge/`)
+
+Runs after a completed review (static or loop), when the user disputes specific
+comments. It is **not** part of the venue simulation — it always goes
+author ↔ reviewer regardless of `response_routing` (the user is pressure-testing
+the review's correctness). `--via-chair` optionally routes it through
+`review-area-chair` instead.
+
+- Input: `challenge/requests.json` — per comment, the user's `argument` and an
+  optional `counter_fix` (a typed `fix` object).
+- `response-researcher` runs in **challenge mode**: it argues the user's point on
+  evidence, and reports honestly if the evidence is against the user.
+- Per challenged comment, for `j = 1..J` (`J = 2`): researcher stance → the one
+  reviewer that owns the comment replies → `thread_state.py` (default mediator).
+  Same oscillation guard and forced resolution at `j = J`.
+- Terminal outcomes: `accepted` (revised typed `fix` recorded), reviewer
+  `withdraw` → `rebutted`, or still-disputed after `J` → **`challenged-upheld`**.
+- The challenged rows of `review-B` / `review-B1` are rewritten with the revised
+  `fix` / severity / state; `challenge/outcomes.json` records every transition.
+- No paper edits here — applying still goes through the curation gate.

@@ -49,15 +49,17 @@ Exactly one.
 
 ## Axis 3 — Actionability (what the authors have to do)
 
-Exactly one.
+Exactly one. The slugs are revision-cycle-neutral: "response" means whatever
+channel the venue has (conference rebuttal, journal revision letter, or none),
+and "final version" means camera-ready or accepted manuscript.
 
 | Slug | Meaning |
 |---|---|
-| `fix-in-rebuttal-text` | Can be resolved by explanation or clarification in the response, no new work. |
-| `fix-camera-ready` | A wording / figure / citation change that can wait for the final version. |
-| `needs-new-experiments` | Requires running something that does not exist yet. |
+| `resolve-in-response-text` | Can be resolved by explanation or clarification in the author response, no new work. |
+| `defer-to-final-version` | A wording / figure / citation change that can wait for the camera-ready or accepted manuscript. |
+| `needs-new-work` | Requires producing something that does not exist yet — a new experiment, a new proof or lemma, a new measurement, additional analysis, a new participant study. |
 | `needs-reframing` | Requires rewriting claims, scope, or positioning (not new results). |
-| `needs-clarification-from-authors` | The reviewer cannot judge severity until the authors answer a question. |
+| `needs-author-clarification` | The reviewer cannot judge severity until the authors answer a question. |
 
 ## Metadata block (attached to every item)
 
@@ -65,7 +67,7 @@ Exactly one.
 id: R2-07                      # <reviewer-id>-<running number>; the AC keeps merged ids
 category: missing-results
 severity: major
-actionability: needs-new-experiments
+actionability: needs-new-work
 location:
   section: "5.2 Ablations"
   page: 7                      # for PDF-only review
@@ -79,12 +81,105 @@ problem: >
 evidence: >
   Table 3 covers {A, B}. Section 3 also defines {C, D, E}. No results for C-E appear
   anywhere in the paper or appendix.
-suggested_fix: >
-  Add the C/D/E runs to Table 3, or restrict the claim to {A, B} and say so explicitly.
+fix:                            # REQUIRED — a typed object, never free advice. See below.
+  kind: work_spec
+  work:
+    kind: experiment
+    goal: "we observe consistent gains across all settings"
+    design: "Run the method and the baseline on settings C, D, E with the exact
+      protocol already used for A and B in Section 4."
+    conditions: ["C", "D", "E", "baseline on C/D/E"]
+    metrics: ["same primary metric as Table 3, mean ± std"]
+    data: "the existing benchmark; no new data"
+    statistics: "5 seeds per cell, as in Table 3"
+    acceptance: "Table 3 gains a C/D/E block and the gain is positive and outside
+      1 std on each — OR the abstract/Section 5 claim is rewritten to 'on A and
+      B' (see the alternative edit fix)."
+    effort: "~1 day, same compute as the existing Table 3 runs"
 ```
 
 `quote` is mandatory whenever the item refers to specific text — it is what makes
 the point traceable and what anchors the `\todo` note in the LaTeX pass.
+
+## The `fix` object (required on every comment)
+
+A fix is an **edit or a spec, never advice.** "Consider revising" / "the authors
+should strengthen" / "add more detail" are not fixes. The shape is keyed to
+`actionability`:
+
+| `actionability` | `fix.kind` | What it must contain |
+|---|---|---|
+| `defer-to-final-version`; most `incorrect-statement`, `unclear-statement`, `presentation`, `missing-context` | `edit` | `edits: [ {file, line, find, replace, why} ]` — see below |
+| `needs-reframing` | `edit` | one entry in `edits` per sentence / claim to change, across as many locations as needed |
+| `resolve-in-response-text` | `response_text` | `text:` the exact paragraph the authors should put in their response (not a description of it) |
+| `needs-new-work` | `work_spec` | `work:` per the schema below |
+| `needs-author-clarification` | `question` | `question:` (one precise question) and `answers: [ {if: "<plausible answer>", then_severity: "<slug>", then_fix: <a fix object>} ]` covering the likely answers |
+
+### `kind: edit`
+
+```yaml
+fix:
+  kind: edit
+  edits:
+    - file: "sections/intro.tex"        # omit for PDF-only review
+      line: 42                           # best-known line; may be approximate
+      find: "the first method to jointly optimise both objectives"   # VERBATIM from the paper
+      replace: "among the first methods to jointly optimise both objectives"
+      why: "the 'first' claim is not established; Smith 2023 does the same"
+```
+
+- `find` must be **copy-pasteable from the paper** — the same rule as `quote`.
+  Keep it short enough to be unique (a clause or sentence), long enough to match
+  once. `check_fixes.py` rejects a `find` that does not occur in the source.
+- `replace` is the **whole** replacement text, ready to drop in. For a pure
+  deletion, `replace: ""`. To add a sentence, `find` the sentence it follows and
+  `replace` with both.
+- Multiple `edits` are applied in order.
+
+### `kind: work_spec`
+
+```yaml
+fix:
+  kind: work_spec
+  work:
+    kind: experiment | ablation | proof | derivation | measurement | user-study | analysis | dataset-addition
+    goal: "<the claim this must support — quoted from the paper>"
+    design: "<exactly what to run / build / prove>"
+    conditions: ["<arm / baseline / setting>", "..."]   # empirical kinds
+    metrics: ["<metric + how compared, e.g. 'MSE vs CRLB at SNR 0-20 dB'>"]
+    data: "<dataset / instrument / participants, with N and why N>"
+    statistics: "<trials or seeds, the test, effect-size reporting>"
+    proof_obligation: "<kind: proof/derivation — the exact statement to establish
+      and the specific gap in the current argument>"
+    acceptance: "<the concrete result that would resolve this comment>"
+    effort: "<rough: hours | days | weeks; + compute if relevant>"
+```
+
+Only the fields relevant to `work.kind` are required; the **field profile** (§3)
+says which. `acceptance` is always required — it is what tells the authors when
+they are done and gives the challenge loop something to check.
+
+### `kind: response_text` / `kind: question`
+
+```yaml
+fix:
+  kind: response_text
+  text: "Our evaluation uses the standard split of Doe et al. (2021); we have
+    added the split sizes and the preprocessing script hash to Appendix B.2."
+```
+
+```yaml
+fix:
+  kind: question
+  question: "Were the test-set labels available during hyperparameter selection?"
+  answers:
+    - if: "no, tuning used a separate validation split"
+      then_severity: nit
+      then_fix: {kind: edit, edits: [{find: "...", replace: "...", why: "state the split explicitly"}]}
+    - if: "yes"
+      then_severity: blocking
+      then_fix: {kind: work_spec, work: {kind: experiment, goal: "...", design: "re-tune on a held-out validation split and re-report", acceptance: "..."}}
+```
 
 ## Severity → `todonotes` colour (LaTeX pass)
 
@@ -121,4 +216,4 @@ literature (PeerRead, Kang et al. 2018; *Identifying Aspects in Peer Reviews*,
 The "too general" labels that the *Identifying Aspects in Peer Reviews* taxonomy
 explicitly drops — bare **Strength**, **Weakness**, **Question**, **Comment** —
 are deliberately not categories here. A strength is recorded in deliverable A's
-narrative; a question is an item with `actionability: needs-clarification-from-authors`.
+narrative; a question is an item with `actionability: needs-author-clarification`.

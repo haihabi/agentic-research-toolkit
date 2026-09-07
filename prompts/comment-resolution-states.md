@@ -19,6 +19,7 @@ Referenced by `prompts/rebuttal-protocol.md`, `agents/review-area-chair.md`, and
 | `rebutted` | Either the reviewer withdrew after the rebuttal, or both sides agree the comment is valid but cannot be acted on and the reviewer does not press it. Recorded, not fixed, not in either group. | yes |
 | `unresolved_disagreement` | After the loop, the parties still substantively disagree. | yes |
 | `unresolved_insufficient_info` | The comment is (or may be) valid, but no available information can settle or address it — it needs new experiments, data, or author knowledge not present in the run. | yes |
+| `challenged-upheld` | The **user** challenged this comment post-review; after `J` challenge rounds the reviewer still upholds it. Recorded with the full challenge transcript. | yes |
 
 ## Transitions
 
@@ -41,6 +42,10 @@ stateDiagram-v2
 ```
 
 The per-round stance × reply → state table is in `prompts/rebuttal-protocol.md`.
+The **chair-mediated variant** (venues where the response is not shared with
+reviewers) reaches the same terminal states in a single round via the chair's
+`addressed` / `partly` / `upheld` / `moot` ruling — see the chair table in
+`prompts/rebuttal-protocol.md`.
 
 ## Forced resolution at `k == K`
 
@@ -65,6 +70,7 @@ sets `oscillated: true`, and stops updating it.
 | `accepted` | **Group 1** | `agreed` |
 | `unresolved_disagreement` | **Group 2** | `disagreement` |
 | `unresolved_insufficient_info` | **Group 2** | `insufficient-info` |
+| `challenged-upheld` | **Group 2** | `challenge-failed` |
 | `rebutted` | — (neither) | recorded in `discussion-log.md` only |
 
 - **Group 1 → `review-B1`** — carries the agreed `final_fix` text; feeds the

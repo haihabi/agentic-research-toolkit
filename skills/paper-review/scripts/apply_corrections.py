@@ -1,21 +1,22 @@
 #!/usr/bin/env python3
-"""apply_corrections.py — apply the user-accepted Group 1 corrections (loop mode).
+"""apply_corrections.py — apply the user-accepted Group 1 corrections.
 
 Runs after the curation gate. Copies the .tex tree to <out-dir>/corrected/,
-applies each accepted Group 1 item's `patch`, removes that item's
-`% paper-review <id>` todo line, writes corrections.diff, and (local mode)
-compiles. Items with no self-contained `patch` are reported as "needs manual
-edit" and left alone.
+applies each accepted Group 1 item whose `fix.kind == "edit"` (every entry in
+`fix.edits[]` as a find -> replace), removes that item's `% paper-review <id>`
+todo line, writes corrections.diff, and (local mode) compiles. Accepted items
+whose `fix.kind` is `work_spec` / `response_text` / `question` cannot be applied
+mechanically — they are reported under "needs_manual_edit" (and `work_spec`
+items are also listed under "to_action_list").
 
     apply_corrections.py --b1 review-B1.json --decisions curation/decisions.json \
         --source SRC --out-dir DIR [--engine pdflatex] [--no-compile]
 
-review-B1.json items may carry an optional structured patch:
-  "patch": {"op": "replace",      "file": "sec/x.tex", "find": "...", "replace": "..."}
-  "patch": {"op": "insert_after", "file": "sec/x.tex", "anchor": "...", "text": "..."}
-  "patch": {"op": "insert_before","file": "sec/x.tex", "anchor": "...", "text": "..."}
-Items without a patch are skipped (reported), because a free-text `final_fix`
-cannot be applied unambiguously.
+Each `fix.edits[]` entry is {file, line?, find, replace, why?}. An entry may also
+carry an explicit op for anchored inserts:
+  {"op": "insert_after",  "file": "sec/x.tex", "anchor": "...", "text": "..."}
+  {"op": "insert_before", "file": "sec/x.tex", "anchor": "...", "text": "..."}
+The default op is "replace" (find -> replace, first occurrence).
 
 For Overleaf mode pass --emit-plan to print the edit list as JSON instead of
 touching a local tree; the skill then applies it via the overleaf MCP.
@@ -70,22 +71,44 @@ def main() -> int:
     accepted = [d["id"] for d in decisions
                 if d.get("group") == 1 and d.get("user") == "accept"]
 
-    plan, manual = [], []
+    def edit_to_patch(e: dict) -> dict:
+        op = e.get("op", "replace")
+        if op in ("insert_after", "insert_before"):
+            return {"op": op, "file": e["file"], "anchor": e["anchor"],
+                    "text": e["text"]}
+        return {"op": "replace", "file": e["file"], "find": e["find"],
+                "replace": e.get("replace", "")}
+
+    plan, manual, to_action_list = [], [], []
     for cid in accepted:
         it = items.get(cid)
         if not it:
             manual.append({"id": cid, "reason": "not found in review-B1.json"})
             continue
-        patch = it.get("patch")
-        if not patch or not patch.get("op"):
-            manual.append({"id": cid, "reason": "no structured patch",
-                           "final_fix": it.get("final_fix", "")})
+        fix = it.get("fix") or it.get("final_fix")
+        if not isinstance(fix, dict):
+            manual.append({"id": cid, "reason": "no typed fix object"})
             continue
-        plan.append({"id": cid, "file": patch["file"], "patch": patch})
+        kind = fix.get("kind")
+        if kind != "edit":
+            manual.append({"id": cid, "reason": f"fix.kind={kind} — not mechanically applyable"})
+            if kind == "work_spec":
+                to_action_list.append({"id": cid, "work": fix.get("work", {})})
+            continue
+        edits = fix.get("edits") or []
+        if not edits:
+            manual.append({"id": cid, "reason": "fix.kind=edit but edits[] empty"})
+            continue
+        for e in edits:
+            if not e.get("file"):
+                manual.append({"id": cid, "reason": "edit missing `file` (PDF-only review?)"})
+                continue
+            plan.append({"id": cid, "file": e["file"], "patch": edit_to_patch(e)})
 
     if args.emit_plan:
         json.dump({"apply": plan, "needs_manual_edit": manual,
-                   "strip_todos": [p["id"] for p in plan]},
+                   "to_action_list": to_action_list,
+                   "strip_todos": sorted({p["id"] for p in plan})},
                   sys.stdout, indent=2)
         print()
         return 0
@@ -130,7 +153,7 @@ def main() -> int:
         "".join(diff_lines))
 
     result = {"applied": applied, "failed": failed, "needs_manual_edit": manual,
-              "corrected_dir": corrected}
+              "to_action_list": to_action_list, "corrected_dir": corrected}
 
     if not args.no_compile and touched:
         # find the root file

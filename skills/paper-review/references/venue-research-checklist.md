@@ -25,15 +25,26 @@ generic reviewing guidance — that already lives in `paper-review-base.md`.
   copy the review form structure and note register/length of the reviews. Prefer
   the same year; else the previous year (say so).
 
-## 2. IEEE conferences (ICASSP, ICIP, ICME, ICC, INFOCOM, …)
+## 2. IEEE / society conferences (ICASSP, ICIP, ICME, ICC, INFOCOM, …)
 
-- `<year>.<conf>.org/editorial-procedures/` or `/reviewer-guidelines/` — scoring
-  criteria (often quality / relevance / correctness / novelty), score scale,
-  recommendation categories.
+- `<year>.<conf>.org/editorial-procedures/` (SPS venues) or `/reviewer-guidelines/`
+  — capture, **verbatim**: every review-form criterion and its **ordinal label
+  set** (Confidence, Importance/Relevance, Paper type, Originality/Novelty,
+  Theoretical development, Experimental validation, Clarity, Reference to prior
+  work, Overall, Award quality). Set `score_style: ordinal-categories`. Do **not**
+  invent a 1–N scale.
+- From the same page: number of reviewers (usually "at least three"); the
+  **rebuttal** rule — window, and critically **who receives it** (SPS: TC / Area
+  Chairs, *not shared with the original reviewers* → `response_routing:
+  chair-or-editor-only`, `process_model: editor-mediated-referees`); desk-reject
+  / initial-check stage; single-anonymous vs. double.
+- `signalprocessingsociety.org/publications-resources/guidelines-reviewers` — what
+  a good review contains; "use the whole score range"; "disregard minor
+  formatting issues".
 - `<year>.<conf>.org/author-kit-instructions/` — page limit, anonymity, template.
-- IEEE publication ethics & plagiarism policy (`ieee.org`).
+- IEEE publication ethics & plagiarism policy, no-manuscript-to-LLM rule (`ieee.org`).
 - Sample reviews: IEEE conference reviews are private; note that and rely on the
-  editorial-procedures description of what a good review contains.
+  editorial-procedures description.
 
 ## 3. IEEE Transactions and other engineering journals
 
@@ -63,14 +74,41 @@ generic reviewing guidance — that already lives in `paper-review-base.md`.
 - The workshop's own CFP page: archival or not, review depth, page limit,
   acceptance model.
 - Inherit ethics / formatting norms from the parent conference; note that.
+- Usually `process_model: light-single-pass`, `response_routing: none`.
 
-## 6. Always
+## 6. Theory venues (STOC, FOCS, SODA, CCC, COLT, ITCS)
+
+- Venue CFP + PC / reviewer instructions: is there a rebuttal? a numeric rubric,
+  or just an accept/reject lean + confidence? page limit for the main body vs.
+  a full-proofs appendix.
+- Expect `score_style: none` or a minimal lean; `process_model:
+  panel-plus-metareviewer` without a merged comment list, or `light-single-pass`.
+- Note in §5 (emphasised criteria): correctness/completeness of proofs,
+  significance of the result and the technique — **experiments are not
+  expected**; pair with field profile `theory-proofs`.
+
+## 7. Social-science / humanities / medical venues
+
+- **Medical / clinical** (per ICMJE): journal "Instructions for Reviewers";
+  which reporting guideline applies (CONSORT / STROBE / TRIPOD / PRISMA /
+  STARD); trial-registration, ethics-approval, data-sharing, competing-interest
+  requirements; open vs. closed peer review (source of sample reports). Pair
+  with field profile `applied-clinical`; fallback `journal-medical`.
+- **Social science / humanities** (APSA, ASA, disciplinary journals): reviewer
+  guidelines emphasising theoretical framing, method–question fit, and
+  engagement with the literature; whether the venue expects quantitative,
+  qualitative, or interpretive rigor. Pair with `hci-qualitative` or
+  `position-survey`.
+
+## 8. Always
 
 - Record every URL in section 9 of the profile with a one-line note.
 - Put everything not found in section 10 (Gaps).
+- Always resolve `process_model` and `response_routing` — if unsure, infer from
+  the closest match in section 0 / `venue-guidance-generic.md` and say so.
 - If the form itself cannot be found, tell the skill which
-  `assets/fallback-forms/` file matches (`conference-ml`, `conference-ieee`,
-  `journal-referee-report`).
+  `assets/fallback-forms/` file matches: `conference-ml`, `conference-ieee`,
+  `journal-referee-report`, `journal-medical`, or `theory-venue`.
 
 ## Future hook — OpenReview API
 

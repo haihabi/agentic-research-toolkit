@@ -44,12 +44,40 @@ def tex_escape(s: str) -> str:
     return ''.join(out).replace('->', r'$\rightarrow$')
 
 
+def fix_summary(item: dict) -> str:
+    """One-line, human summary of the typed `fix` object for a \\todo note."""
+    fix = item.get("fix") or item.get("final_fix")
+    if not isinstance(fix, dict):
+        # legacy / free-text fallback
+        return str(item.get("suggested_fix", "")).strip().replace("\n", " ")
+    kind = fix.get("kind")
+    if kind == "edit":
+        parts = []
+        for e in fix.get("edits", []):
+            f = (e.get("find") or "").strip().replace("\n", " ")
+            r = (e.get("replace") or "").strip().replace("\n", " ")
+            f = (f[:60] + "…") if len(f) > 60 else f
+            r = (r[:60] + "…") if len(r) > 60 else r
+            parts.append(f'replace "{f}" -> "{r}"' if r else f'delete "{f}"')
+        return "; ".join(parts)
+    if kind == "work_spec":
+        w = fix.get("work", {})
+        return (f"{w.get('kind', 'new work')}: {w.get('design', '')} "
+                f"[done when: {w.get('acceptance', '')}]").strip().replace("\n", " ")
+    if kind == "response_text":
+        t = (fix.get("text") or "").strip().replace("\n", " ")
+        return "respond: " + ((t[:120] + "…") if len(t) > 120 else t)
+    if kind == "question":
+        return "ask authors: " + (fix.get("question") or "").strip().replace("\n", " ")
+    return ""
+
+
 def note_text(item: dict) -> str:
     i = item["id"]
     cat = item["category"]
     sev = item["severity"]
     problem = item.get("problem", "").strip().replace("\n", " ")
-    fix = item.get("suggested_fix", "").strip().replace("\n", " ")
+    fix = fix_summary(item)
     body = f"[{i}][{cat}/{sev}] {problem}"
     if fix:
         body += f" -> {fix}"

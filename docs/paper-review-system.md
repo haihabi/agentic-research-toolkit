@@ -1,15 +1,23 @@
 # paper-review — system diagram
 
-How the `paper-review` skill is wired, in both modes. The same three diagrams are
-published as an interactive Artifact (Panels A and B side by side); this file is
-the source of record.
+How the `paper-review` skill is wired, in both modes. This file is the source of
+record; Panels A and B are also published as an interactive Artifact.
+
+The review prompt is always `paper-review-base.md` (venue- and field-agnostic) +
+a **field profile** (`--field`: what validity/evidence/novelty mean for this
+paper type) + the per-run **venue profile** (form, scales, decision set, and
+`process_model`). `process_model` selects the synthesis step and the loop shape
+(Panel D).
 
 - **`static` mode** (Panel A) — one review pass: reviewer panel →
-  `review-area-chair` merge → deliverables A + B → `todonotes`.
-- **`loop` mode** (Panel B) — adds the author-response loop, the end-of-loop
-  area-chair decision, the Group 1 / Group 2 split, a human curation gate, and
-  then real paper corrections + an action list. No pre-loop merge; reviews stay
-  per-reviewer; the area chair is invoked once, at the end.
+  `review-area-chair` synthesis (merge for `panel-plus-metareviewer`; editor
+  summary for `editor-mediated-referees`; light note for a workshop) →
+  deliverables A + B → `todonotes`.
+- **`loop` mode** (Panel B) — adds the author-response stage, an end-of-loop
+  decision, the Group 1 / Group 2 split, a human curation gate, and then real
+  paper corrections + an action list. The stage is a reviewer-visible K-round
+  rebuttal, a single chair-mediated pass, or an editor-mediated revision round —
+  see Panel D.
 
 Both modes also publish a per-run **review-report Artifact** (from
 `skills/paper-review/assets/review-report-template.html`) — a browsable dashboard
@@ -126,3 +134,60 @@ sequenceDiagram
 
 The area chair, the curation gate, and the apply step happen after this loop —
 see Panel B.
+
+---
+
+## Panel D — loop shape by `process_model` / response routing
+
+```mermaid
+flowchart TB
+  RUN[/"reviews R1..RN (raw) + venue-profile.process_model"/] --> Q{response routing?}
+
+  Q -->|reviewer-visible<br/>ML confs| RV["K-round rebuttal loop<br/>response-researcher ↔ reviewers<br/>thread_state.py (default)"]
+  Q -->|chair-or-editor-only<br/>IEEE / SPS confs| CM["chair-mediated (1 pass)<br/>response-researcher → review-area-chair<br/>reviewers NOT re-spawned<br/>thread_state.py --mediator chair"]
+  Q -->|none<br/>workshops / no rebuttal| NO["skip response stage"]
+  Q -->|rolling-revision<br/>journals / security| RR["response letter + revision plan<br/>editor issues this round's decision<br/>K ignored (rounds = separate runs)"]
+
+  RV --> DEC["review-area-chair — end-of-loop decision<br/>(metareviewer or handling-editor variant)"]
+  CM --> DEC
+  NO --> DEC
+  RR --> DEC
+  DEC --> OUT["decision (venue vocabulary) · G1/G2 split · deliverables"]
+```
+
+`review-area-chair` never merges referee reports into one list unless
+`process_model` is `panel-plus-metareviewer`. For `editor-mediated-referees` it
+writes an editor summary that tags each referee point binding / advisory /
+overruled, and `review-B` is the de-duplicated union of referee comments.
+
+---
+
+## Panel E — challenge & re-review (post-run, every stage user-triggered)
+
+Every comment carries a typed `fix` (`kind: edit` with verbatim find/replace,
+`kind: work_spec` with an `acceptance` test, `response_text`, or `question`);
+`check_fixes.py` gates deliverable B. After the run the user may:
+
+```mermaid
+flowchart TB
+  R["cycle-1 review (static or loop)<br/>review-B* with typed fixes"] --> C{{"user: challenge <id>: <argument>"}}
+  C -->|per comment, j=1..J (2)| RS["response-researcher (challenge mode)<br/>argues the USER's point, evidence-bound"]
+  RS --> RV["the one owning reviewer (rebuttal-eval)<br/>or review-area-chair if --via-chair"]
+  RV --> TS{{"thread_state.py"}}
+  TS -->|accepted| RF["revised typed fix written into review-B*"]
+  TS -->|withdraw| RB["rebutted"]
+  TS -->|upheld after J| CU["challenged-upheld → Group 2"]
+
+  RF --> B{{"user: curation gate + apply_corrections.py"}}
+  B -->|fix.kind = edit| COR["corrected/paper_v&lt;n&gt;/ + corrections.diff"]
+  B -->|fix.kind = work_spec| AL["action-list.md (full spec)"]
+
+  COR --> STOP["skill records 'text changed — re-review available' and STOPS"]
+  STOP --> RR{{"user: re-review  (explicit; never automatic)"}}
+  RR -->|corrections.diff non-empty| PANEL["re-run steps 5–10 on paper_v&lt;n&gt;<br/>reuse venue-profile / field-profile / review-prompt<br/>panel in re-review mode: prior review-B + diff"]
+  PANEL --> REC["review-area-chair (reconciliation)<br/>cycle-&lt;n+1&gt;/ + reconciliation.md<br/>(resolved / persists / new)"]
+  REC --> C
+```
+
+The user decides how many cycles to run; `re-review` re-issues the decision only
+with `--rescore`.
